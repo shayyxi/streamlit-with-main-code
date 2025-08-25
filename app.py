@@ -11,6 +11,15 @@ MaintenanceSummaryForThreeWeeks,
 LeadsSummaryForThreeWeeks
 )
 
+from api_response_processor import (
+api_response_processor_property_summary, api_response_processor_units_summary,
+api_response_processor_rent_summary, api_response_processor_units_summary,
+api_response_processor_resident_retention, api_response_processor_leads_summary,
+api_response_processor_maintenance_summary
+)
+
+from metrics_persistence.metrics_persistence import MetricsPersistence
+
 
 # =========================
 # GLOBALS / THEME
@@ -132,74 +141,30 @@ def cardify(fig):
 # DEMO DATA (replace with your real instances)
 # =========================
 def create_demo_models():
-    property_summary = PropertySummary(
-        total_units=None, total_rentable_units=231, excluded_units=1,
-        preleased_units=222, occupied_units_percentage="90.4", preleased_units_percentage="97.1",
-        evictions_filed=3, evictions_and_skips_occurred_for_current_month=2
-    )
-    units_summary = UnitsSummary(
-        count_of_occupied_units=215, count_of_on_notice_rented_units=10,
-        count_of_on_notice_unrented_units=5, count_of_vacant_units=17,
-        count_of_vacant_rented_units=3, count_of_vacant_unrented_units=14,
-        count_of_total_move_ins=20,
-        count_of_total_move_out=18,
-    )
-    notice_mtm = ResidentRetentionSummaryForNoticeAndMTM(
-        notice_non_renewed_leases_count=12,
-        notice_eviction_leases_count=3,
-        need_renewal_mtm_leases_count=9
-    )
-    expiry3 = ResidentRetentionSummaryForExpiryAndRenewalForThreeMonths(
-        current_month_first_date="2025-08-01", current_month_last_date="2025-08-31",
-        current_month_total_expiring_leases_count=22,
-        current_month_renewed_leases_count=14,
-        current_month_under_renewal_leases_count=5,
-        current_month_need_renewal_leases_count=3,
-        next_month_first_date="2025-09-01", next_month_last_date="2025-09-30",
-        next_month_total_expiring_leases_count=18,
-        next_month_renewed_leases_count=0,
-        next_month_under_renewal_leases_count=0,
-        next_month_need_renewal_leases_count=18,
-        next_to_next_month_first_date="2025-10-01", next_to_next_month_last_date="2025-10-31",
-        next_to_next_month_total_expiring_leases_count=25,
-        next_to_next_month_renewed_leases_count=0,
-        next_to_next_month_under_renewal_leases_count=0,
-        next_to_next_month_need_renewal_leases_count=25
-    )
-    rent3 = RentSummaryForCurrentAndLastTwoMonths(
-        current_month_first_date="2025-08-01", current_month_today_date="2025-08-25",
-        current_month_total_rent_billed=248130, current_month_total_rent_collected=246035,
-        current_month_total_rent_collected_percentage="99.16",
-        last_month_first_date="2025-07-01", last_month_last_date="2025-07-31",
-        last_month_total_rent_billed=240876, last_month_total_rent_collected=244563,
-        last_month_total_rent_collected_percentage="101.53",
-        month_before_last_first_date="2025-06-01", month_before_last_last_date="2025-06-30",
-        month_before_last_total_rent_billed=259190, month_before_last_total_rent_collected=259469,
-        month_before_last_total_rent_collected_percentage="100.11"
-    )
-    maint3 = MaintenanceSummaryForThreeWeeks(
-        current_week_monday_date="2025-08-18", current_week_end_date="2025-08-24",
-        current_week_open_work_orders_count="9", current_week_completed_work_orders_count="18",
-        last_week_monday_date="2025-08-11", last_week_sunday_date="2025-08-17",
-        last_week_open_work_orders_count="8", last_week_completed_work_orders_count="16",
-        week_before_last_monday_date="2025-08-04", week_before_last_sunday_date="2025-08-10",
-        week_before_last_open_work_orders_count="7", week_before_last_completed_work_orders_count="14"
-    )
-    leads3 = LeadsSummaryForThreeWeeks(
-        current_week_monday_date="2025-08-18", current_week_end_date="2025-08-24",
-        current_week_new_leads_count=140, current_week_applications_started_count=22,
-        current_week_applications_completed_count=22, current_week_lease_signed_count=22,
-        current_week_approved_applications_count=7, current_week_cancelled_applications_count=4,
-        last_week_monday_date="2025-08-11", last_week_end_date="2025-08-17",
-        last_week_new_leads_count=104, last_week_applications_started_count=15,
-        last_week_applications_completed_count=22, last_week_lease_signed_count=22,
-        last_week_approved_applications_count=3, last_week_cancelled_applications_count=2,
-        week_before_last_monday_date="2025-08-04", week_before_last_end_date="2025-08-10",
-        week_before_last_new_leads_count=70, week_before_last_applications_started_count=7,
-        week_before_last_applications_completed_count=22, week_before_last_lease_signed_count=22,
-        week_before_last_approved_applications_count=4, week_before_last_cancelled_applications_count=1
-    )
-    return property_summary, units_summary, notice_mtm, expiry3, rent3, maint3, leads3
+    db_url = st.secrets["DB_URL"]
+    metrics_persistence = MetricsPersistence(db_url)
+    property_id = 100082999
+    property_summary = api_response_processor_property_summary.get_property_summary(property_id)
+    # rent summary
+    rent_summary = api_response_processor_rent_summary.get_rent_summary(property_id, metrics_persistence)
+    # units summary
+    units_summary = api_response_processor_units_summary.get_units_summary(property_id)
+    # resident retention summary
+    (resident_retention_summary_for_expiry_and_renewal_for_three_months,
+     resident_retention_summary_for_notice_and_mtm) = api_response_processor_resident_retention.get_resident_retention_summary(
+        property_id)
+    # leads summary
+    leads_summary_for_three_weeks = api_response_processor_leads_summary.get_leads_summary(property_id)
+    # maintenance summary
+    maintenance_summary_for_three_weeks = api_response_processor_maintenance_summary.get_maintenance_summary(
+        property_id)
+    return (property_summary,
+            units_summary,
+            resident_retention_summary_for_notice_and_mtm,
+            resident_retention_summary_for_expiry_and_renewal_for_three_months,
+            rent_summary,
+            maintenance_summary_for_three_weeks,
+            leads_summary_for_three_weeks)
 
 
 # =========================
