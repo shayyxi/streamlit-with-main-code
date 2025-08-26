@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from dataclasses import dataclass, asdict
 from typing import Union, List, Any
+import datetime
 from api_response_processor.data_classes import (
 PropertySummary, UnitsSummary, ResidentRetentionSummaryForNoticeAndMTM,
 ResidentRetentionSummaryForExpiryAndRenewalForThreeMonths,
@@ -19,6 +20,7 @@ api_response_processor_maintenance_summary
 )
 
 from metrics_persistence.metrics_persistence import MetricsPersistence
+from metrics_persistence import summary_table_name
 
 
 # =========================
@@ -143,12 +145,38 @@ def cardify(fig):
 def create_demo_models():
     db_url = st.secrets["DB_URL"]
     metrics_persistence = MetricsPersistence(db_url)
-    property_id = 100082999
+    property_id = 100082999 #4060 preferred place
     property_summary = api_response_processor_property_summary.get_property_summary(property_id)
     # rent summary
     rent_summary = api_response_processor_rent_summary.get_rent_summary(property_id, metrics_persistence)
     # units summary
     units_summary = api_response_processor_units_summary.get_units_summary(property_id)
+    #persist property summary and units summary
+    # put db data for property summary
+    metrics_persistence.insert_property_metrics_if_day_is_sunday_or_5th_in_rent_summary(property_id, property_summary,
+                                                                                        summary_table_name.SummaryTableName.PROPERTY_SUMMARY.value)
+    # put db data for units summary
+    metrics_persistence.insert_property_metrics_if_day_is_sunday_or_5th_in_rent_summary(property_id, units_summary,
+                                                                                        summary_table_name.SummaryTableName.UNITS_SUMMARY.value)
+    #getting previous data for property and units summary
+    # property summary dict
+    previous_property_summary = metrics_persistence.get_property_metrics(property_id,
+                                                                         summary_table_name.SummaryTableName.PROPERTY_SUMMARY.value)
+
+    if len(previous_property_summary.keys()) > 0:
+        all_property_summary = {datetime.date.today(): property_summary, **previous_property_summary}
+    else:
+        all_property_summary = {datetime.date.today(): property_summary}
+
+    # units summary dict
+    previous_units_summary = metrics_persistence.get_property_metrics(property_id,
+                                                                      summary_table_name.SummaryTableName.UNITS_SUMMARY.value)
+
+    if len(previous_units_summary.keys()) > 0:
+        all_units_summary = {datetime.date.today(): units_summary, **previous_units_summary}
+    else:
+        all_units_summary = {datetime.date.today(): units_summary}
+
     # resident retention summary
     (resident_retention_summary_for_expiry_and_renewal_for_three_months,
      resident_retention_summary_for_notice_and_mtm) = api_response_processor_resident_retention.get_resident_retention_summary(
@@ -158,7 +186,7 @@ def create_demo_models():
     # maintenance summary
     maintenance_summary_for_three_weeks = api_response_processor_maintenance_summary.get_maintenance_summary(
         property_id)
-    return (property_summary,
+    return (all_property_summary,
             units_summary,
             resident_retention_summary_for_notice_and_mtm,
             resident_retention_summary_for_expiry_and_renewal_for_three_months,
@@ -170,19 +198,29 @@ def create_demo_models():
 # =========================
 # RENDERERS (tabs)
 # =========================
-def render_overview(ps: PropertySummary, rs: RentSummaryForCurrentAndLastTwoMonths):
+def render_overview(ps_by_date: dict[str, PropertySummary],
+                    rs: RentSummaryForCurrentAndLastTwoMonths):
+    """
+    ps_by_date: Ordered dict {date_string: PropertySummary, ...}
+                First item = latest date.
+    rs: RentSummaryForCurrentAndLastTwoMonths dataclass.
+    """
+
+    # ---- KPIs from latest ----
+    latest_date, latest_ps = next(iter(ps_by_date.items()))
+
     st.markdown('<div class="kpi-grid"></div>', unsafe_allow_html=True)
     a,b,c,d,e,f,g,h = st.columns(8, gap="small")
-    with a: kpi_card("Total Units", k(ps.total_units))
-    with b: kpi_card("Rentable Units", k(ps.total_rentable_units))
-    with c: kpi_card("Excluded Units", k(ps.excluded_units))
-    with d: kpi_card("Pre-leased Units", k(ps.preleased_units))
-    with e: kpi_card("Occupied %", pct(ps.occupied_units_percentage))
-    with f: kpi_card("Pre-leased %", pct(ps.preleased_units_percentage))
-    with g: kpi_card("Evictions Filed", k(ps.evictions_filed))
-    with h: kpi_card("Evictions/Skips (MTD)", k(ps.evictions_and_skips_occurred_for_current_month))
+    with a: kpi_card("Total Units", k(latest_ps.total_units))
+    with b: kpi_card("Rentable Units", k(latest_ps.total_rentable_units))
+    with c: kpi_card("Excluded Units", k(latest_ps.excluded_units))
+    with d: kpi_card("Pre-leased Units", k(latest_ps.preleased_units))
+    with e: kpi_card("Occupied %", pct(latest_ps.occupied_units_percentage))
+    with f: kpi_card("Pre-leased %", pct(latest_ps.preleased_units_percentage))
+    with g: kpi_card("Evictions Filed", k(latest_ps.evictions_filed))
+    with h: kpi_card("Evictions/Skips (MTD)", k(latest_ps.evictions_and_skips_occurred_for_current_month))
 
-    # Rent billed vs collected (3 months)
+    # ---- Rent billed vs collected (3 months) ----
     rent_rows = [
         {
             "Period": "Current",
@@ -204,14 +242,17 @@ def render_overview(ps: PropertySummary, rs: RentSummaryForCurrentAndLastTwoMont
         },
     ]
     rent_df = pd.DataFrame(rent_rows)
-    rent_long = rent_df.melt(id_vars=["Period","Range"], value_vars=["Billed","Collected"],
+    rent_long = rent_df.melt(id_vars=["Period","Range"],
+                             value_vars=["Billed","Collected"],
                              var_name="Type", value_name="Amount")
+
     left, right = st.columns(2)
     with left:
         st.subheader("Rent billed vs collected")
         fig = px.bar(rent_long, x="Period", y="Amount", color="Type", barmode="group",
                      hover_data=["Range"], text_auto=".2s")
         st.plotly_chart(cardify(fig), use_container_width=True, key="rent_billed_collected")
+
     with right:
         st.subheader("Collection %")
         coll = pd.DataFrame({
@@ -225,9 +266,16 @@ def render_overview(ps: PropertySummary, rs: RentSummaryForCurrentAndLastTwoMont
         fig2 = px.bar(coll, x="Period", y="Collected %", text_auto=".1f")
         st.plotly_chart(cardify(fig2), use_container_width=True, key="collection_pct")
 
+    # ---- Raw property summaries table ----
+    raw_rows = []
+    for date_key, ps in ps_by_date.items():
+        row = {"Date": date_key, **asdict(ps)}
+        raw_rows.append(row)
+    raw_df = pd.DataFrame(raw_rows)
+
     st.write("---")
     st.subheader("Property summary (raw)")
-    st.dataframe(dc_to_df(ps), use_container_width=True, hide_index=True, key="ps_table")
+    st.dataframe(raw_df, use_container_width=True, hide_index=True, key="ps_table")
 
 
 def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, leads: LeadsSummaryForThreeWeeks):
