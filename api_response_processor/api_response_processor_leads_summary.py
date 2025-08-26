@@ -80,7 +80,7 @@ def generate_leads_summary(leads_api_response):
     """
     prospect = helpers.get_leads_from_leads_response_json(leads_api_response)
     if prospect is None:
-        return None, None, None, None
+        return None, None, None, None, None, None
     count_of_new_leads = 0
     count_of_started_applications = 0
     count_of_completed_applications = 0
