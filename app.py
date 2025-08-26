@@ -147,7 +147,7 @@ def cardify(fig):
 def create_demo_models():
     db_url = st.secrets["DB_URL"]
     metrics_persistence = MetricsPersistence(db_url)
-    property_id = 100082999 #4060 preferred place
+    property_id = 100102627 #The reserve at rye 290
     property_summary = api_response_processor_property_summary.get_property_summary(property_id)
     # rent summary
     rent_summary = api_response_processor_rent_summary.get_rent_summary(property_id, metrics_persistence)
@@ -419,7 +419,7 @@ def main():
     # Replace the following line with your real dataclass instances
     ps, us, notice_mtm, expiry3, rent3, maint3, leads3 = create_demo_models()
 
-    st.title("🏢 Property Dashboard for 4060 Preferred Place")
+    st.title("🏢 Property Dashboard for The Reserve at Rye 290")
 
     t1, t2, t3 = st.tabs(["Overview", "Operations", "Resident Retention"])
     with t1:
