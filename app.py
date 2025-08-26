@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from dataclasses import dataclass, asdict
 from typing import Union, List, Any
+import datetime
 from api_response_processor.data_classes import (
 PropertySummary, UnitsSummary, ResidentRetentionSummaryForNoticeAndMTM,
 ResidentRetentionSummaryForExpiryAndRenewalForThreeMonths,
@@ -10,6 +11,16 @@ RentSummaryForCurrentAndLastTwoMonths,
 MaintenanceSummaryForThreeWeeks,
 LeadsSummaryForThreeWeeks
 )
+
+from api_response_processor import (
+api_response_processor_property_summary, api_response_processor_units_summary,
+api_response_processor_rent_summary, api_response_processor_units_summary,
+api_response_processor_resident_retention, api_response_processor_leads_summary,
+api_response_processor_maintenance_summary
+)
+
+from metrics_persistence.metrics_persistence import MetricsPersistence
+from metrics_persistence import summary_table_name
 
 
 # =========================
@@ -132,92 +143,85 @@ def cardify(fig):
 # DEMO DATA (replace with your real instances)
 # =========================
 def create_demo_models():
-    property_summary = PropertySummary(
-        total_units=None, total_rentable_units=231, excluded_units=1,
-        preleased_units=222, occupied_units_percentage="90.4", preleased_units_percentage="97.1",
-        evictions_filed=3, evictions_and_skips_occurred_for_current_month=2
-    )
-    units_summary = UnitsSummary(
-        count_of_occupied_units=215, count_of_on_notice_rented_units=10,
-        count_of_on_notice_unrented_units=5, count_of_vacant_units=17,
-        count_of_vacant_rented_units=3, count_of_vacant_unrented_units=14,
-        count_of_total_move_ins=20,
-        count_of_total_move_out=18,
-    )
-    notice_mtm = ResidentRetentionSummaryForNoticeAndMTM(
-        notice_non_renewed_leases_count=12,
-        notice_eviction_leases_count=3,
-        need_renewal_mtm_leases_count=9
-    )
-    expiry3 = ResidentRetentionSummaryForExpiryAndRenewalForThreeMonths(
-        current_month_first_date="2025-08-01", current_month_last_date="2025-08-31",
-        current_month_total_expiring_leases_count=22,
-        current_month_renewed_leases_count=14,
-        current_month_under_renewal_leases_count=5,
-        current_month_need_renewal_leases_count=3,
-        next_month_first_date="2025-09-01", next_month_last_date="2025-09-30",
-        next_month_total_expiring_leases_count=18,
-        next_month_renewed_leases_count=0,
-        next_month_under_renewal_leases_count=0,
-        next_month_need_renewal_leases_count=18,
-        next_to_next_month_first_date="2025-10-01", next_to_next_month_last_date="2025-10-31",
-        next_to_next_month_total_expiring_leases_count=25,
-        next_to_next_month_renewed_leases_count=0,
-        next_to_next_month_under_renewal_leases_count=0,
-        next_to_next_month_need_renewal_leases_count=25
-    )
-    rent3 = RentSummaryForCurrentAndLastTwoMonths(
-        current_month_first_date="2025-08-01", current_month_today_date="2025-08-25",
-        current_month_total_rent_billed=248130, current_month_total_rent_collected=246035,
-        current_month_total_rent_collected_percentage="99.16",
-        last_month_first_date="2025-07-01", last_month_last_date="2025-07-31",
-        last_month_total_rent_billed=240876, last_month_total_rent_collected=244563,
-        last_month_total_rent_collected_percentage="101.53",
-        month_before_last_first_date="2025-06-01", month_before_last_last_date="2025-06-30",
-        month_before_last_total_rent_billed=259190, month_before_last_total_rent_collected=259469,
-        month_before_last_total_rent_collected_percentage="100.11"
-    )
-    maint3 = MaintenanceSummaryForThreeWeeks(
-        current_week_monday_date="2025-08-18", current_week_end_date="2025-08-24",
-        current_week_open_work_orders_count="9", current_week_completed_work_orders_count="18",
-        last_week_monday_date="2025-08-11", last_week_sunday_date="2025-08-17",
-        last_week_open_work_orders_count="8", last_week_completed_work_orders_count="16",
-        week_before_last_monday_date="2025-08-04", week_before_last_sunday_date="2025-08-10",
-        week_before_last_open_work_orders_count="7", week_before_last_completed_work_orders_count="14"
-    )
-    leads3 = LeadsSummaryForThreeWeeks(
-        current_week_monday_date="2025-08-18", current_week_end_date="2025-08-24",
-        current_week_new_leads_count=140, current_week_applications_started_count=22,
-        current_week_applications_completed_count=22, current_week_lease_signed_count=22,
-        current_week_approved_applications_count=7, current_week_cancelled_applications_count=4,
-        last_week_monday_date="2025-08-11", last_week_end_date="2025-08-17",
-        last_week_new_leads_count=104, last_week_applications_started_count=15,
-        last_week_applications_completed_count=22, last_week_lease_signed_count=22,
-        last_week_approved_applications_count=3, last_week_cancelled_applications_count=2,
-        week_before_last_monday_date="2025-08-04", week_before_last_end_date="2025-08-10",
-        week_before_last_new_leads_count=70, week_before_last_applications_started_count=7,
-        week_before_last_applications_completed_count=22, week_before_last_lease_signed_count=22,
-        week_before_last_approved_applications_count=4, week_before_last_cancelled_applications_count=1
-    )
-    return property_summary, units_summary, notice_mtm, expiry3, rent3, maint3, leads3
+    db_url = st.secrets["DB_URL"]
+    metrics_persistence = MetricsPersistence(db_url)
+    property_id = 100082999 #4060 preferred place
+    property_summary = api_response_processor_property_summary.get_property_summary(property_id)
+    # rent summary
+    rent_summary = api_response_processor_rent_summary.get_rent_summary(property_id, metrics_persistence)
+    # units summary
+    units_summary = api_response_processor_units_summary.get_units_summary(property_id)
+    #persist property summary and units summary
+    # put db data for property summary
+    metrics_persistence.insert_property_metrics_if_day_is_sunday_or_5th_in_rent_summary(property_id, property_summary,
+                                                                                        summary_table_name.SummaryTableName.PROPERTY_SUMMARY.value)
+    # put db data for units summary
+    metrics_persistence.insert_property_metrics_if_day_is_sunday_or_5th_in_rent_summary(property_id, units_summary,
+                                                                                        summary_table_name.SummaryTableName.UNITS_SUMMARY.value)
+    #getting previous data for property and units summary
+    # property summary dict
+    previous_property_summary = metrics_persistence.get_property_metrics(property_id,
+                                                                         summary_table_name.SummaryTableName.PROPERTY_SUMMARY.value)
+
+    if len(previous_property_summary.keys()) > 0:
+        all_property_summary = {datetime.date.today(): property_summary, **previous_property_summary}
+    else:
+        all_property_summary = {datetime.date.today(): property_summary}
+
+    # units summary dict
+    previous_units_summary = metrics_persistence.get_property_metrics(property_id,
+                                                                      summary_table_name.SummaryTableName.UNITS_SUMMARY.value)
+
+    if len(previous_units_summary.keys()) > 0:
+        all_units_summary = {datetime.date.today(): units_summary, **previous_units_summary}
+    else:
+        all_units_summary = {datetime.date.today(): units_summary}
+
+    # resident retention summary
+    (resident_retention_summary_for_expiry_and_renewal_for_three_months,
+     resident_retention_summary_for_notice_and_mtm) = api_response_processor_resident_retention.get_resident_retention_summary(
+        property_id)
+    # leads summary
+    leads_summary_for_three_weeks = api_response_processor_leads_summary.get_leads_summary(property_id)
+    # maintenance summary
+    maintenance_summary_for_three_weeks = api_response_processor_maintenance_summary.get_maintenance_summary(
+        property_id)
+    metrics_persistence.close()
+    return (all_property_summary,
+            all_units_summary,
+            resident_retention_summary_for_notice_and_mtm,
+            resident_retention_summary_for_expiry_and_renewal_for_three_months,
+            rent_summary,
+            maintenance_summary_for_three_weeks,
+            leads_summary_for_three_weeks)
 
 
 # =========================
 # RENDERERS (tabs)
 # =========================
-def render_overview(ps: PropertySummary, rs: RentSummaryForCurrentAndLastTwoMonths):
+def render_overview(ps_by_date: dict[str, PropertySummary],
+                    rs: RentSummaryForCurrentAndLastTwoMonths):
+    """
+    ps_by_date: Ordered dict {date_string: PropertySummary, ...}
+                First item = latest date.
+    rs: RentSummaryForCurrentAndLastTwoMonths dataclass.
+    """
+
+    # ---- KPIs from latest ----
+    latest_date, latest_ps = next(iter(ps_by_date.items()))
+
     st.markdown('<div class="kpi-grid"></div>', unsafe_allow_html=True)
     a,b,c,d,e,f,g,h = st.columns(8, gap="small")
-    with a: kpi_card("Total Units", k(ps.total_units))
-    with b: kpi_card("Rentable Units", k(ps.total_rentable_units))
-    with c: kpi_card("Excluded Units", k(ps.excluded_units))
-    with d: kpi_card("Pre-leased Units", k(ps.preleased_units))
-    with e: kpi_card("Occupied %", pct(ps.occupied_units_percentage))
-    with f: kpi_card("Pre-leased %", pct(ps.preleased_units_percentage))
-    with g: kpi_card("Evictions Filed", k(ps.evictions_filed))
-    with h: kpi_card("Evictions/Skips (MTD)", k(ps.evictions_and_skips_occurred_for_current_month))
+    with a: kpi_card("Total Units", k(latest_ps.total_units))
+    with b: kpi_card("Rentable Units", k(latest_ps.total_rentable_units))
+    with c: kpi_card("Excluded Units", k(latest_ps.excluded_units))
+    with d: kpi_card("Pre-leased Units", k(latest_ps.preleased_units))
+    with e: kpi_card("Occupied %", pct(latest_ps.occupied_units_percentage))
+    with f: kpi_card("Pre-leased %", pct(latest_ps.preleased_units_percentage))
+    with g: kpi_card("Evictions Filed", k(latest_ps.evictions_filed))
+    with h: kpi_card("Evictions/Skips (MTD)", k(latest_ps.evictions_and_skips_occurred_for_current_month))
 
-    # Rent billed vs collected (3 months)
+    # ---- Rent billed vs collected (3 months) ----
     rent_rows = [
         {
             "Period": "Current",
@@ -239,14 +243,17 @@ def render_overview(ps: PropertySummary, rs: RentSummaryForCurrentAndLastTwoMont
         },
     ]
     rent_df = pd.DataFrame(rent_rows)
-    rent_long = rent_df.melt(id_vars=["Period","Range"], value_vars=["Billed","Collected"],
+    rent_long = rent_df.melt(id_vars=["Period","Range"],
+                             value_vars=["Billed","Collected"],
                              var_name="Type", value_name="Amount")
+
     left, right = st.columns(2)
     with left:
         st.subheader("Rent billed vs collected")
         fig = px.bar(rent_long, x="Period", y="Amount", color="Type", barmode="group",
                      hover_data=["Range"], text_auto=".2s")
         st.plotly_chart(cardify(fig), use_container_width=True, key="rent_billed_collected")
+
     with right:
         st.subheader("Collection %")
         coll = pd.DataFrame({
@@ -260,20 +267,39 @@ def render_overview(ps: PropertySummary, rs: RentSummaryForCurrentAndLastTwoMont
         fig2 = px.bar(coll, x="Period", y="Collected %", text_auto=".1f")
         st.plotly_chart(cardify(fig2), use_container_width=True, key="collection_pct")
 
+    # ---- Raw property summaries table ----
+    raw_rows = []
+    for date_key, ps in ps_by_date.items():
+        row = {"Date": date_key, **asdict(ps)}
+        raw_rows.append(row)
+    raw_df = pd.DataFrame(raw_rows)
+
     st.write("---")
     st.subheader("Property summary (raw)")
-    st.dataframe(dc_to_df(ps), use_container_width=True, hide_index=True, key="ps_table")
+    st.dataframe(raw_df, use_container_width=True, hide_index=True, key="ps_table")
 
 
-def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, leads: LeadsSummaryForThreeWeeks):
+def render_operations(us_by_date: dict[str, UnitsSummary],
+                      maint: MaintenanceSummaryForThreeWeeks,
+                      leads: LeadsSummaryForThreeWeeks):
+    """
+    us_by_date: Ordered dict {date_string: UnitsSummary, ...}
+                First item = latest date.
+    maint: MaintenanceSummaryForThreeWeeks dataclass.
+    leads: LeadsSummaryForThreeWeeks dataclass.
+    """
+
+    # ---- KPIs from latest UnitsSummary ----
+    latest_date, latest_us = next(iter(us_by_date.items()))
+
     st.markdown('<div class="kpi-grid"></div>', unsafe_allow_html=True)
-    a,b,c,d,e = st.columns(5, gap="large")
-    with a: kpi_card("Occupied Units", k(us.count_of_occupied_units))
-    with b: kpi_card("Vacant Units", k(us.count_of_vacant_units))
-    with c: kpi_card("Move-ins (MTD)", k(us.count_of_total_move_ins))
-    with d: kpi_card("Move-outs (MTD)", k(us.count_of_total_move_out))
+    a,b,c,d = st.columns(4, gap="large")
+    with a: kpi_card("Occupied Units", k(latest_us.count_of_occupied_units))
+    with b: kpi_card("Vacant Units", k(latest_us.count_of_vacant_units))
+    with c: kpi_card("Move-ins (MTD)", k(latest_us.count_of_total_move_ins))
+    with d: kpi_card("Move-outs (MTD)", k(latest_us.count_of_total_move_out))
 
-    # Maintenance 3 weeks: open vs completed
+    # ---- Maintenance (3 weeks) ----
     maint_df = pd.DataFrame([
         {"Week":"Current", "Open":safe_num(maint.current_week_open_work_orders_count),
          "Completed":safe_num(maint.current_week_completed_work_orders_count),
@@ -288,7 +314,7 @@ def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, 
     maint_long = maint_df.melt(id_vars=["Week","Range"], value_vars=["Open","Completed"],
                                var_name="Status", value_name="Count")
 
-    # Leads 3 weeks: stages
+    # ---- Leads (3 weeks) ----
     leads_df = pd.DataFrame([
         {"Week":"Current", "Range": f"{leads.current_week_monday_date} → {leads.current_week_end_date}",
          "New Leads":safe_num(leads.current_week_new_leads_count),
@@ -308,6 +334,7 @@ def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, 
     ])
     leads_long = leads_df.melt(id_vars=["Week","Range"], var_name="Stage", value_name="Count")
 
+    # ---- Charts ----
     left, right = st.columns(2)
     with left:
         st.subheader("Maintenance — Open vs Completed (3 weeks)")
@@ -320,9 +347,16 @@ def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, 
                       hover_data=["Range"], text_auto=".0f")
         st.plotly_chart(cardify(fig4), use_container_width=True, key="leads_3w")
 
+    # ---- Raw UnitsSummary table ----
+    raw_rows = []
+    for date_key, us in us_by_date.items():
+        row = {"Date": date_key, **asdict(us)}
+        raw_rows.append(row)
+    raw_df = pd.DataFrame(raw_rows)
+
     st.write("---")
     st.subheader("Units summary (raw)")
-    st.dataframe(dc_to_df(us), use_container_width=True, hide_index=True, key="us_table")
+    st.dataframe(raw_df, use_container_width=True, hide_index=True, key="us_table")
 
 
 def render_retention(notice_mtm: ResidentRetentionSummaryForNoticeAndMTM,
@@ -345,7 +379,7 @@ def render_retention(notice_mtm: ResidentRetentionSummaryForNoticeAndMTM,
          "Under Renewal":safe_num(expiry3.next_month_under_renewal_leases_count),
          "Need Renewal":safe_num(expiry3.next_month_need_renewal_leases_count),
          "Range": f"{expiry3.next_month_first_date} → {expiry3.next_month_last_date}"},
-        {"Month":"Next+1", "Expiring":safe_num(expiry3.next_to_next_month_total_expiring_leases_count),
+        {"Month":"Next to next", "Expiring":safe_num(expiry3.next_to_next_month_total_expiring_leases_count),
          "Renewed":safe_num(expiry3.next_to_next_month_renewed_leases_count),
          "Under Renewal":safe_num(expiry3.next_to_next_month_under_renewal_leases_count),
          "Need Renewal":safe_num(expiry3.next_to_next_month_need_renewal_leases_count),
@@ -378,7 +412,7 @@ def main():
     # Replace the following line with your real dataclass instances
     ps, us, notice_mtm, expiry3, rent3, maint3, leads3 = create_demo_models()
 
-    st.title("🏢 Property Dashboard")
+    st.title("🏢 Property Dashboard for 4060 Preferred Place")
 
     t1, t2, t3 = st.tabs(["Overview", "Operations", "Resident Retention"])
     with t1:

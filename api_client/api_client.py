@@ -3,9 +3,10 @@ API Client file, Calls Entrata APIs
 """
 import calendar
 import copy
-import os
 from datetime import datetime
 import requests
+import streamlit as st
+
 from config import constants
 
 def get_properties():
@@ -292,7 +293,7 @@ def get_leases_with_move_out_date_range(property_id, from_date, to_date):
     return None
 
 def get_headers():
-    api_key = os.getenv("API_KEY")
+    api_key = st.secrets["API_KEY"]
     headers = copy.deepcopy(constants.HEADERS)
     headers["X-Api-Key"] = api_key
     return headers
