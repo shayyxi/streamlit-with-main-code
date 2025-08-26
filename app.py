@@ -186,8 +186,9 @@ def create_demo_models():
     # maintenance summary
     maintenance_summary_for_three_weeks = api_response_processor_maintenance_summary.get_maintenance_summary(
         property_id)
+    metrics_persistence.close()
     return (all_property_summary,
-            units_summary,
+            all_units_summary,
             resident_retention_summary_for_notice_and_mtm,
             resident_retention_summary_for_expiry_and_renewal_for_three_months,
             rent_summary,
@@ -278,15 +279,27 @@ def render_overview(ps_by_date: dict[str, PropertySummary],
     st.dataframe(raw_df, use_container_width=True, hide_index=True, key="ps_table")
 
 
-def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, leads: LeadsSummaryForThreeWeeks):
-    st.markdown('<div class="kpi-grid"></div>', unsafe_allow_html=True)
-    a,b,c,d,e = st.columns(5, gap="large")
-    with a: kpi_card("Occupied Units", k(us.count_of_occupied_units))
-    with b: kpi_card("Vacant Units", k(us.count_of_vacant_units))
-    with c: kpi_card("Move-ins (MTD)", k(us.count_of_total_move_ins))
-    with d: kpi_card("Move-outs (MTD)", k(us.count_of_total_move_out))
+def render_operations(us_by_date: dict[str, UnitsSummary],
+                      maint: MaintenanceSummaryForThreeWeeks,
+                      leads: LeadsSummaryForThreeWeeks):
+    """
+    us_by_date: Ordered dict {date_string: UnitsSummary, ...}
+                First item = latest date.
+    maint: MaintenanceSummaryForThreeWeeks dataclass.
+    leads: LeadsSummaryForThreeWeeks dataclass.
+    """
 
-    # Maintenance 3 weeks: open vs completed
+    # ---- KPIs from latest UnitsSummary ----
+    latest_date, latest_us = next(iter(us_by_date.items()))
+
+    st.markdown('<div class="kpi-grid"></div>', unsafe_allow_html=True)
+    a,b,c,d = st.columns(4, gap="large")
+    with a: kpi_card("Occupied Units", k(latest_us.count_of_occupied_units))
+    with b: kpi_card("Vacant Units", k(latest_us.count_of_vacant_units))
+    with c: kpi_card("Move-ins (MTD)", k(latest_us.count_of_total_move_ins))
+    with d: kpi_card("Move-outs (MTD)", k(latest_us.count_of_total_move_out))
+
+    # ---- Maintenance (3 weeks) ----
     maint_df = pd.DataFrame([
         {"Week":"Current", "Open":safe_num(maint.current_week_open_work_orders_count),
          "Completed":safe_num(maint.current_week_completed_work_orders_count),
@@ -301,7 +314,7 @@ def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, 
     maint_long = maint_df.melt(id_vars=["Week","Range"], value_vars=["Open","Completed"],
                                var_name="Status", value_name="Count")
 
-    # Leads 3 weeks: stages
+    # ---- Leads (3 weeks) ----
     leads_df = pd.DataFrame([
         {"Week":"Current", "Range": f"{leads.current_week_monday_date} → {leads.current_week_end_date}",
          "New Leads":safe_num(leads.current_week_new_leads_count),
@@ -321,6 +334,7 @@ def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, 
     ])
     leads_long = leads_df.melt(id_vars=["Week","Range"], var_name="Stage", value_name="Count")
 
+    # ---- Charts ----
     left, right = st.columns(2)
     with left:
         st.subheader("Maintenance — Open vs Completed (3 weeks)")
@@ -333,9 +347,16 @@ def render_operations(us: UnitsSummary, maint: MaintenanceSummaryForThreeWeeks, 
                       hover_data=["Range"], text_auto=".0f")
         st.plotly_chart(cardify(fig4), use_container_width=True, key="leads_3w")
 
+    # ---- Raw UnitsSummary table ----
+    raw_rows = []
+    for date_key, us in us_by_date.items():
+        row = {"Date": date_key, **asdict(us)}
+        raw_rows.append(row)
+    raw_df = pd.DataFrame(raw_rows)
+
     st.write("---")
     st.subheader("Units summary (raw)")
-    st.dataframe(dc_to_df(us), use_container_width=True, hide_index=True, key="us_table")
+    st.dataframe(raw_df, use_container_width=True, hide_index=True, key="us_table")
 
 
 def render_retention(notice_mtm: ResidentRetentionSummaryForNoticeAndMTM,
@@ -358,7 +379,7 @@ def render_retention(notice_mtm: ResidentRetentionSummaryForNoticeAndMTM,
          "Under Renewal":safe_num(expiry3.next_month_under_renewal_leases_count),
          "Need Renewal":safe_num(expiry3.next_month_need_renewal_leases_count),
          "Range": f"{expiry3.next_month_first_date} → {expiry3.next_month_last_date}"},
-        {"Month":"Next+1", "Expiring":safe_num(expiry3.next_to_next_month_total_expiring_leases_count),
+        {"Month":"Next to next", "Expiring":safe_num(expiry3.next_to_next_month_total_expiring_leases_count),
          "Renewed":safe_num(expiry3.next_to_next_month_renewed_leases_count),
          "Under Renewal":safe_num(expiry3.next_to_next_month_under_renewal_leases_count),
          "Need Renewal":safe_num(expiry3.next_to_next_month_need_renewal_leases_count),
@@ -391,7 +412,7 @@ def main():
     # Replace the following line with your real dataclass instances
     ps, us, notice_mtm, expiry3, rent3, maint3, leads3 = create_demo_models()
 
-    st.title("🏢 Property Dashboard")
+    st.title("🏢 Property Dashboard for 4060 Preferred Place")
 
     t1, t2, t3 = st.tabs(["Overview", "Operations", "Resident Retention"])
     with t1:
