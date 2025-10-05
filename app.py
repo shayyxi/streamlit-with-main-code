@@ -211,15 +211,14 @@ def render_overview(ps_by_date: dict[str, PropertySummary],
     latest_date, latest_ps = next(iter(ps_by_date.items()))
 
     st.markdown('<div class="kpi-grid"></div>', unsafe_allow_html=True)
-    a,b,c,d,e,f,g,h = st.columns(8, gap="small")
+    a,b,c,d,e,f,g = st.columns(7, gap="small")
     with a: kpi_card("Total Units", k(latest_ps.total_units))
     with b: kpi_card("Rentable Units", k(latest_ps.total_rentable_units))
     with c: kpi_card("Excluded Units", k(latest_ps.excluded_units))
-    with d: kpi_card("Pre-leased Units", k(latest_ps.preleased_units))
-    with e: kpi_card("Occupied %", pct(latest_ps.occupied_units_percentage))
-    with f: kpi_card("Pre-leased %", pct(latest_ps.preleased_units_percentage))
-    with g: kpi_card("Evictions Filed", k(latest_ps.evictions_filed))
-    with h: kpi_card("Evictions/Skips (MTD)", k(latest_ps.evictions_and_skips_occurred_for_current_month))
+    with d: kpi_card("Occupied %", pct(latest_ps.occupied_units_percentage))
+    with e: kpi_card("Leased %", pct(latest_ps.leased_units_percentage))
+    with f: kpi_card("Trend %", pct(latest_ps.trend_percentage))
+    with g: kpi_card("Evictions/Skips (MTD)", k(latest_ps.evictions_and_skips_occurred_for_current_month))
 
     # ---- Rent billed vs collected (3 months) ----
     rent_rows = [

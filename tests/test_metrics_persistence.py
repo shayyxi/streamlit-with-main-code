@@ -41,10 +41,9 @@ def test_insert_property_metrics_if_day_is_not_friday(mocker):
         total_units=1,
         total_rentable_units=1,
         excluded_units=1,
-        preleased_units=1,
         occupied_units_percentage=1,
-        preleased_units_percentage=1,
-        evictions_filed=1,
+        leased_units_percentage=1,
+        trend_percentage=1,
         evictions_and_skips_occurred_for_current_month=1
     )
     persistence.insert_property_metrics_if_day_is_sunday_or_5th_in_rent_summary(

@@ -6,29 +6,26 @@ def test_generate_property_summary():
         constants_for_testing.PROPERTY_UNITS_RESPONSE_JSON,
         constants_for_testing.UNITS_AVAILABILITY_AND_PRICING_RESPONSE_JSON_FOR_UNITS_SUMMARY_TESTING,
         constants_for_testing.LEASES_RESPONSE_JSON,
-        constants_for_testing.LEASES_RESPONSE_JSON,
         constants_for_testing.LEASES_RESPONSE_JSON
     )
     property_summary = api_response_processor_property_summary.generate_property_summary(api_responses)
     assert property_summary.total_units == 153
     assert property_summary.total_rentable_units == 150
     assert property_summary.excluded_units == property_summary.total_units - property_summary.total_rentable_units
-    assert property_summary.preleased_units == 144
     assert property_summary.occupied_units_percentage == "4.67%"
-    assert property_summary.preleased_units_percentage == "94.12%"
-    assert property_summary.evictions_filed == 3
+    assert property_summary.leased_units_percentage == "4.67%"
     assert property_summary.evictions_and_skips_occurred_for_current_month == 4
 
-def test_get_preleased_units_percentage():
-    preleased_units_percentage = api_response_processor_property_summary.get_preleased_units_percentage(150, 200)
-    assert preleased_units_percentage == "75.0%"
-    preleased_units_percentage = api_response_processor_property_summary.get_preleased_units_percentage(None, 200)
+def test_get_leased_units_percentage():
+    preleased_units_percentage = api_response_processor_property_summary.get_leased_units_percentage(constants_for_testing.UNITS_AVAILABILITY_AND_PRICING_RESPONSE_JSON_FOR_PROPERTY_SUMMARY_TESTING, 200)
+    assert preleased_units_percentage == "3.0%"
+    preleased_units_percentage = api_response_processor_property_summary.get_leased_units_percentage(None, 200)
     assert preleased_units_percentage is None
-    preleased_units_percentage = api_response_processor_property_summary.get_preleased_units_percentage(200, None)
+    preleased_units_percentage = api_response_processor_property_summary.get_leased_units_percentage(constants_for_testing.UNITS_AVAILABILITY_AND_PRICING_RESPONSE_JSON_FOR_PROPERTY_SUMMARY_TESTING, None)
     assert preleased_units_percentage is None
-    preleased_units_percentage = api_response_processor_property_summary.get_preleased_units_percentage(None, None)
+    preleased_units_percentage = api_response_processor_property_summary.get_leased_units_percentage(None, None)
     assert preleased_units_percentage is None
-    preleased_units_percentage = api_response_processor_property_summary.get_preleased_units_percentage(150, 0)
+    preleased_units_percentage = api_response_processor_property_summary.get_leased_units_percentage(constants_for_testing.UNITS_AVAILABILITY_AND_PRICING_RESPONSE_JSON_FOR_PROPERTY_SUMMARY_TESTING, 0)
     assert preleased_units_percentage is None
 
 def test_get_excluded_units():
@@ -104,16 +101,6 @@ def test_get_occupied_units_percentage():
     assert occupied_units_percentage is None
     occupied_units_percentage = api_response_processor_property_summary.get_occupied_units_percentage(constants_for_testing.UNITS_AVAILABILITY_AND_PRICING_RESPONSE_JSON_FOR_UNITS_SUMMARY_TESTING, None)
     assert occupied_units_percentage is None
-
-def test_get_evictions_filed():
-    evictions_filed = api_response_processor_property_summary.get_count_of_evictions_filed(constants_for_testing.LEASES_RESPONSE_JSON)
-    assert evictions_filed == 3
-    evictions_filed = api_response_processor_property_summary.get_count_of_evictions_filed(constants_for_testing.EMPTY_RESPONSE_JSON)
-    assert evictions_filed is None
-    evictions_filed = api_response_processor_property_summary.get_count_of_evictions_filed(None)
-    assert evictions_filed is None
-    evictions_filed = api_response_processor_property_summary.get_count_of_evictions_filed(constants_for_testing.BAD_RESPONSE_JSON)
-    assert evictions_filed is None
 
 def test_get_occurred_evictions_and_skips():
     evictions_and_skips = api_response_processor_property_summary.get_count_of_occurred_evictions_and_skips(constants_for_testing.LEASES_RESPONSE_JSON)

@@ -169,6 +169,89 @@ UNITS_AVAILABILITY_AND_PRICING_RESPONSE_JSON_FOR_UNITS_SUMMARY_TESTING = {
     }
 }
 
+UNITS_AVAILABILITY_AND_PRICING_RESPONSE_JSON_FOR_PROPERTY_SUMMARY_TESTING = {
+    "response": {
+        "requestId": "15",
+        "code": 200,
+        "result": {
+            "Properties": {
+        "Property": [
+          {
+            "Floorplans": {
+              "Floorplan": [
+                {
+                  "Name": "A1",
+                  "Comment": "One bedroom One Bath",
+                  "UnitCount": "50",
+                  "UnitsAvailable": "3"
+                },
+                {
+                  "Name": "A2",
+                  "Comment": "One bedroom One Bath",
+                  "UnitCount": "50",
+                  "UnitsAvailable": "3"
+                },
+                {
+                  "Name": "A3",
+                  "Comment": "One bedroom One Bath",
+                  "UnitCount": "50",
+                  "UnitsAvailable": "3"
+                }
+              ]
+            }
+          }
+        ]
+      },
+            "ILS_Units": {
+                "Unit": {
+                    "88942": {
+                        "@attributes": {
+                            "Availability": "Not Available",
+                            "Status": "Vacant Ready (Unavailable)",
+                        }
+                    },
+                    "88943": {
+                        "@attributes": {
+                            "Availability": "Not Available",
+                            "Status": "Vacant Ready (Unavailable)",
+                        }
+                    },
+                    "88944": {
+                        "@attributes": {
+                            "Availability": "Not Available",
+                            "Status": "Vacant Ready (Unavailable)",
+                        }
+                    },
+                    "88945": {
+                        "@attributes": {
+                            "Availability": "Available",
+                            "Status": "Vacant Not Ready (Available)",
+                        }
+                    },
+                    "88946": {
+                        "@attributes": {
+                            "Availability": "Not Available",
+                            "Status": "Occupied (Unavailable)",
+                        }
+                    },
+                    "88947": {
+                        "@attributes": {
+                            "Availability": "Not Available",
+                            "Status": "Occupied (Unavailable)",
+                        }
+                    },
+                    "88948": {
+                        "@attributes": {
+                            "Availability": "Available",
+                            "Status": "Occupied (Available)",
+                        }
+                    },
+                }
+            }
+        }
+    }
+}
+
 LEASES_RESPONSE_JSON = {
   "response": {
     "result": {
@@ -1403,9 +1486,8 @@ fake_data_for_db = data_classes.PropertySummary(
         total_units=1,
         total_rentable_units=1,
         excluded_units=1,
-        preleased_units=1,
         occupied_units_percentage=1,
-        preleased_units_percentage=1,
-        evictions_filed=1,
+        leased_units_percentage=1,
+        trend_percentage=1,
         evictions_and_skips_occurred_for_current_month=1
 )

@@ -1,8 +1,6 @@
 """
 API Response Processor for generating property summary data
 """
-from dataclasses import asdict
-
 from api_response_processor import helpers, api_response_processor_units_summary, data_classes
 from config import constants
 from api_client import api_client
@@ -14,9 +12,6 @@ def get_property_summary(property_id):
     """
     response_from_property_units_api = api_client.get_property_units(property_id)
     response_from_units_availability_and_pricing_api = api_client.get_units_availability_and_pricing(property_id)
-    response_from_leases_api_with_current_and_notice_type = api_client.get_leases(property_id,
-                                                                              constants.LEASES_CURRENT_AND_NOTICE_TYPE_ID,
-                                                                              False, False, None)
     response_from_leases_api_with_notice_type = api_client.get_leases(property_id,
                                                                   constants.LEASES_NOTICE_TYPE_ID, False, False,
                                                                   None)
@@ -26,7 +21,6 @@ def get_property_summary(property_id):
     api_responses = data_classes.ApiResponsesForGeneratingPropertySummary(
         response_from_property_units_api,
         response_from_units_availability_and_pricing_api,
-        response_from_leases_api_with_current_and_notice_type,
         response_from_leases_api_with_notice_type,
         response_from_leases_api_with_past_type
     )
@@ -42,31 +36,52 @@ def generate_property_summary(api_response_json: data_classes.ApiResponsesForGen
     total_units = get_count_of_all_units(api_response_json.response_from_property_units_api)
     total_rentable_units = get_count_of_rentable_units(api_response_json.response_from_units_availability_and_pricing_api)
     excluded_units = get_count_of_excluded_units(total_units, total_rentable_units)
-    preleased_units = get_count_of_preleased_units(api_response_json.response_from_units_availability_and_pricing_api, total_units)
     occupied_units_percentage = get_occupied_units_percentage(api_response_json.response_from_units_availability_and_pricing_api, total_rentable_units)
-    preleased_units_percentage = get_preleased_units_percentage(preleased_units, total_units)
-    evictions_filed = get_count_of_evictions_filed(api_response_json.response_from_leases_api_with_notice_type)
+    leased_units_percentage = get_leased_units_percentage(api_response_json.response_from_units_availability_and_pricing_api, total_rentable_units)
+    trend_percentage = get_trend_percentage(api_response_json.response_from_units_availability_and_pricing_api,total_rentable_units)
     evictions_and_skips_occurred_for_current_month = get_count_of_occurred_evictions_and_skips(api_response_json.response_from_leases_api_with_past_type)
     property_summary = data_classes.PropertySummary(
         total_units,
         total_rentable_units,
         excluded_units,
-        preleased_units,
         occupied_units_percentage,
-        preleased_units_percentage,
-        evictions_filed,
+        leased_units_percentage,
+        trend_percentage,
         evictions_and_skips_occurred_for_current_month
     )
     return property_summary
 
-def get_preleased_units_percentage(preleased_units, total_units):
+def get_trend_percentage(units_availability_and_pricing_response_json, total_rentable_units):
     """
-    method for calculating the percentage of preleased units in a property
+    method for calculating the trend percentage
     """
-    if preleased_units is None or total_units is None or total_units == 0:
+    count_of_occupied_units = api_response_processor_units_summary.get_count_of_units_with_matching_status_and_availability(
+        units_availability_and_pricing_response_json, constants.UNIT_OCCUPIED_NOTICE_STATUS, None)
+    count_of_on_notice_not_rented_units = api_response_processor_units_summary.get_count_of_units_with_matching_status_and_availability(
+        units_availability_and_pricing_response_json, constants.UNIT_NOTICE_STATUS, True)
+    count_of_vacant_rented_units = api_response_processor_units_summary.get_count_of_units_with_matching_status_and_availability(
+        units_availability_and_pricing_response_json, constants.UNIT_VACANT_STATUS, False)
+    if (count_of_occupied_units is None or
+    count_of_on_notice_not_rented_units is None or
+    total_rentable_units is None or
+    total_rentable_units == 0 or
+    count_of_vacant_rented_units is None):
         return None
-    preleased_units_percentage = (preleased_units / total_units) * 100
-    return str(round(preleased_units_percentage, 2)) + "%"
+    trend_percentage = ((count_of_occupied_units - count_of_on_notice_not_rented_units + count_of_vacant_rented_units) / total_rentable_units) * 100
+    return str(round(trend_percentage, 2)) + "%"
+
+def get_leased_units_percentage(units_availability_and_pricing_response_json, total_rentable_units):
+    """
+    method for calculating the percentage of leased units in a property
+    """
+    count_of_occupied_units = api_response_processor_units_summary.get_count_of_units_with_matching_status_and_availability(
+        units_availability_and_pricing_response_json, constants.UNIT_OCCUPIED_NOTICE_STATUS, None)
+    count_of_vacant_rented_units = api_response_processor_units_summary.get_count_of_units_with_matching_status_and_availability(
+        units_availability_and_pricing_response_json, constants.UNIT_VACANT_STATUS, False)
+    if count_of_occupied_units is None or total_rentable_units is None or total_rentable_units == 0 or count_of_vacant_rented_units is None:
+        return None
+    leased_units_percentage = ((count_of_occupied_units + count_of_vacant_rented_units) / total_rentable_units) * 100
+    return str(round(leased_units_percentage, 2)) + "%"
 
 def get_count_of_excluded_units(total_units, total_rentable_units):
     """
@@ -152,20 +167,6 @@ def get_occupied_units_percentage(units_availability_and_pricing_response_json, 
         return None
     occupied_units_percentage = (count_of_occupied_units / total_rentable_units) * 100
     return str(round(occupied_units_percentage, 2)) + "%"
-
-def get_count_of_evictions_filed(leases_response_with_notice_status_json):
-    """
-    method for calculating the count of evictions filed for a property
-    """
-    leases = helpers.get_leases_from_leases_response_json(leases_response_with_notice_status_json)
-    if leases is None:
-        return None
-    evictions_filed = 0
-    for lease in leases:
-        lease_sub_status = lease.get("leaseSubStatus", "")
-        if "eviction" in lease_sub_status.lower():
-            evictions_filed += 1
-    return evictions_filed
 
 def get_count_of_occurred_evictions_and_skips(leases_response_with_past_status_json):
     """

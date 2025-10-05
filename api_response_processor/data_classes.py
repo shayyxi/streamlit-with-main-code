@@ -5,7 +5,6 @@ from typing import Any, Optional, Union
 class ApiResponsesForGeneratingPropertySummary:
     response_from_property_units_api: Optional[Any]
     response_from_units_availability_and_pricing_api: Optional[Any]
-    response_from_leases_api_with_current_and_notice_type: Optional[Any]
     response_from_leases_api_with_notice_type: Optional[Any]
     response_from_leases_api_with_past_type: Optional[Any]
 
@@ -20,10 +19,9 @@ class PropertySummary:
     total_units: Union[int, str, None]
     total_rentable_units: Union[int, str, None]
     excluded_units: Union[int, str, None]
-    preleased_units: Union[int, str, None]
     occupied_units_percentage: Union[int, str, None]
-    preleased_units_percentage: Union[int, str, None]
-    evictions_filed: Union[int, str, None]
+    leased_units_percentage: Union[int, str, None]
+    trend_percentage: Union[int, str, None]
     evictions_and_skips_occurred_for_current_month: Union[int, str, None]
 
 @dataclass
