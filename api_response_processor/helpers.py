@@ -1,4 +1,3 @@
-import datetime
 from datetime import date, timedelta
 
 from dateutil.relativedelta import relativedelta
@@ -113,16 +112,16 @@ def get_first_and_last_date_for_current_and_past_two_months() -> tuple[tuple[dat
     first_date_current_month = today.replace(day=1)
 
     # First date of last month
-    first_date_last_month = (today.replace(day=1) - datetime.timedelta(days=1)).replace(day=1)
+    first_date_last_month = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
 
     # Last date of last month
-    last_date_last_month = today.replace(day=1) - datetime.timedelta(days=1)
+    last_date_last_month = today.replace(day=1) - timedelta(days=1)
 
     # First date of the month before last
-    first_date_month_before_last = (first_date_last_month - datetime.timedelta(days=1)).replace(day=1)
+    first_date_month_before_last = (first_date_last_month - timedelta(days=1)).replace(day=1)
 
     # Last date of the month before last
-    last_date_month_before_last = first_date_last_month - datetime.timedelta(days=1)
+    last_date_month_before_last = first_date_last_month - timedelta(days=1)
     current_month = (first_date_current_month, today)
     last_month = (first_date_last_month, last_date_last_month)
     month_before_last = (first_date_month_before_last, last_date_month_before_last)
@@ -135,3 +134,6 @@ def get_last_and_month_before_last_5th():
     month_before_last = today - relativedelta(months=2)
     month_before_last_5th_date = month_before_last.replace(day=5)
     return last_month_5th_date, month_before_last_5th_date
+
+def get_last_monday_date(d: date) -> date:
+    return d - timedelta(days=d.weekday())

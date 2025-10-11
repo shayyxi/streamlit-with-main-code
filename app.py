@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from dataclasses import dataclass, asdict
-from typing import Union, List, Any
+from dataclasses import asdict
+from typing import Any
 import datetime
+
+import api_response_processor.helpers
 from api_response_processor.data_classes import (
 PropertySummary, UnitsSummary, ResidentRetentionSummaryForNoticeAndMTM,
 ResidentRetentionSummaryForExpiryAndRenewalForThreeMonths,
@@ -291,12 +293,16 @@ def render_operations(us_by_date: dict[str, UnitsSummary],
     # ---- KPIs from latest UnitsSummary ----
     latest_date, latest_us = next(iter(us_by_date.items()))
 
+    # get last monday date string
+    last_monday_date = api_response_processor.helpers.get_last_monday_date(latest_date)
+    date_label = f"{last_monday_date} - {latest_date}"
+
     st.markdown('<div class="kpi-grid"></div>', unsafe_allow_html=True)
     a,b,c,d = st.columns(4, gap="large")
     with a: kpi_card("Occupied Units", k(latest_us.count_of_occupied_units))
     with b: kpi_card("Vacant Units", k(latest_us.count_of_vacant_units))
-    with c: kpi_card("Move-ins (MTD)", k(latest_us.count_of_total_move_ins))
-    with d: kpi_card("Move-outs (MTD)", k(latest_us.count_of_total_move_out))
+    with c: kpi_card(f"Move-ins ({date_label})", k(latest_us.count_of_total_move_ins))
+    with d: kpi_card(f"Move-outs ({date_label})", k(latest_us.count_of_total_move_out))
 
     # ---- Maintenance (3 weeks) ----
     maint_df = pd.DataFrame([
@@ -349,7 +355,9 @@ def render_operations(us_by_date: dict[str, UnitsSummary],
     # ---- Raw UnitsSummary table ----
     raw_rows = []
     for date_key, us in us_by_date.items():
-        row = {"Date": date_key, **asdict(us)}
+        last_monday_date = api_response_processor.helpers.get_last_monday_date(date_key)
+        date_str = f"{last_monday_date} - {date_key}"
+        row = {"Date": date_str, **asdict(us)}
         raw_rows.append(row)
     raw_df = pd.DataFrame(raw_rows)
 
